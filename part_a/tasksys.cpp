@@ -180,12 +180,12 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
 	while (true) {
 		qLock->lock();
-		IRunnable *runnable = *run_ptr;
-		while (runnable == nullptr || *nextTaskId >= *maxTaskId) {
+		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
 			std::cout << "Thread #" << threadId << " sleeping: runnable = " << runnable << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
 			std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
+		IRunnable *runnable = *run_ptr;
 		int taskId = (*nextTaskId)++;
 		qLock->unlock();
 		runnable->runTask(taskId, *maxTaskId);
