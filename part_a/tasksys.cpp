@@ -130,8 +130,8 @@ TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int n
 }
 
 TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
-	for (int i = 0; i < _num_threads; ++i)
-		_workers[i].join();
+	//for (int i = 0; i < _num_threads; ++i)
+	//	_workers[i].join();
 	delete[] _idle;
 	delete[] _workers;
 }
