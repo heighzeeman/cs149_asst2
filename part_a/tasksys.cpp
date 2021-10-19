@@ -108,7 +108,7 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, std::unorder
 		if (!readyQ->empty()) {
 			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
 			readyQ->pop();
-			std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << " w/ id= " << toRun.taskId << std::endl;
+			//std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << " w/ id= " << toRun.taskId << std::endl;
 			qLock->unlock();
 			
 			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
@@ -136,7 +136,7 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
 	_mtx.lock();
-	std::cout << "Deallocating in destructor\n" << std::endl;
+	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 	_mtx.unlock();
 }
