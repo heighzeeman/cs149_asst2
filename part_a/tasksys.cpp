@@ -182,7 +182,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		qLock->lock();
 		IRunnable *runnable = *run_ptr;
 		while (runnable == nullptr || *nextTaskId >= *maxTaskId) {
-			std::cout << "Thread #" << threadId << " sleeping" << std::endl;
+			std::cout << "Thread #" << threadId << " sleeping: runnable = " << runnable << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
 			std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
