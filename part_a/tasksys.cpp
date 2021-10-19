@@ -99,7 +99,7 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
     return "Parallel + Thread Pool + Spin";
 }
 
-static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, std::mutex *qLock) { 
+static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, std::mutex *qLock, bool *signalQuit) { 
 	IRunnableContext toRun;
 	while (true) {
 		qLock->lock();
@@ -116,22 +116,24 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 			qLock->unlock();
 		}
 		else qLock->unlock();
+		if (*signalQuit) break;
 	}
 }
 
 TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _readyCtxs(), _idle(new bool[_num_threads]), _workers(new std::thread[_num_threads]), _mtx() {
+	_num_threads(num_threads), _readyCtxs(), _idle(new bool[_num_threads]), _workers(new std::thread[_num_threads]), _mtx(), _quit(false) {
 	_mtx.lock();
 	for (int i = 0; i < num_threads; ++i) {
 		_idle[i] = true;
-		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_idle[i], &_mtx);
+		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_idle[i], &_mtx, &_quit);
 	}
 	_mtx.unlock();
 }
 
 TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
-	//for (int i = 0; i < _num_threads; ++i)
-	//	_workers[i].join();
+	_quit = true;
+	for (int i = 0; i < _num_threads; ++i)
+		_workers[i].join();
 	delete[] _idle;
 	delete[] _workers;
 }

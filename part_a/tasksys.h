@@ -73,6 +73,7 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
 		bool *_idle;
 		std::thread *_workers;
 		std::mutex _mtx;
+		bool _quit;
 };
 
 /*
