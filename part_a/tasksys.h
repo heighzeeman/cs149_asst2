@@ -100,9 +100,9 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 		IRunnable *_runnable;
 		int _nextTaskId;
 		int _maxTaskId;
-		int _completed;
+		std::atomic<int> _completed;
 		
-		std::atomic_flag _compLock;
+		//std::atomic_flag _compLock;
 		std::condition_variable_any *_worker_cv;
 		std::condition_variable_any *_master_cv;
 		std::mutex *_mtx;
