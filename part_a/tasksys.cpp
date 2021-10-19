@@ -183,6 +183,10 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
 			std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
+			if (*signalQuit) {
+				qLock->unlock();
+				return;
+			}
 			std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
 		IRunnable *runnable = *run_ptr;
@@ -198,7 +202,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		}
 		qLock->unlock();
 		
-		if (*signalQuit) break;	// Janky way of forcing all threads to terminate nicely in destructor
+		if (*signalQuit) return;	// Janky way of forcing all threads to terminate nicely in destructor
 	}
 }
 
@@ -226,6 +230,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // (requiring changes to tasksys.h).
     //
 	_quit = true;
+	_worker_cv.notify_all();
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
 	//std::cout << "Deallocating in destructor\n" << std::endl;
@@ -255,9 +260,10 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		std::cout << "Scheduler woken" << std::endl;
 	}
 	
-	//_runnable = nullptr;
-	_completed = _nextTaskId = _maxTaskId = 0;
+	_runnable = nullptr;
 	_mtx.unlock();
+	_completed = _nextTaskId = _maxTaskId = 0;
+	
 	std::cout << "Run returning" << std::endl;
 	return;
 }
