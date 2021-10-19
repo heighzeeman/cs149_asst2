@@ -183,8 +183,8 @@ void TaskSystemParallelThreadPoolSpinning::sync() {
 				}
 			}
 		} else synced = false;
+		_mtx.unlock();
 		if (synced) {
-			_mtx.unlock();
 			return;
 		}
 	}
