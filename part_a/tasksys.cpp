@@ -198,9 +198,10 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
+			qLock->unlock();
 			master_cv->notify_one();
-		}
-		qLock->unlock();
+		} else qLock->unlock();
+		
 		
 		if (*signalQuit) return;	// Janky way of forcing all threads to terminate nicely in destructor
 	}
@@ -251,10 +252,10 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
+	_worker_cv.notify_all();
 	
 	while (_completed != _maxTaskId) {
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
-		_worker_cv.notify_all();
 		//std::cout << "Scheduler sleeping" << std::endl;
 		_master_cv.wait(_mtx);
 		//std::cout << "Scheduler woken" << std::endl;
