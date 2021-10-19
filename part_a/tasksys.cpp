@@ -184,7 +184,7 @@ void TaskSystemParallelThreadPoolSpinning::sync() {
 		} else synced = false;
 		_mtx.unlock();
 		if (synced) {
-			
+			std::cout << "Returning from sync" << std::endl;
 			return;
 		}
 	}
