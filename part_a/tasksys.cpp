@@ -116,7 +116,7 @@ static void IRunnable_rq_spin(IRunnable** const run_ptr, int * const nextTaskId,
 		} else {
 			qLock->unlock();
 		}
-		if (*signalQuit) break;
+		if (*signalQuit) break;	// Janky way of forcing all threads to terminate nicely in destructor
 	}
 }
 
@@ -133,10 +133,8 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 	_quit = true;
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
-	_mtx.lock();
 	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
-	_mtx.unlock();
 }
 
 void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_total_tasks) {
@@ -159,8 +157,8 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
 		_mtx.lock();
 		if (_completed == _maxTaskId) {
 			_runnable = nullptr;
-			_completed = _nextTaskId = _maxTaskId = 0;
 			_mtx.unlock();
+			_completed = _nextTaskId = _maxTaskId = 0;
 			return;
 		}
 		_mtx.unlock();
