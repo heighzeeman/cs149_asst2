@@ -197,11 +197,12 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
 		while (compLock->test_and_set(std::memory_order_acquire));
-		if (++(*completed) == *maxTaskId) {
+		int comp = ++(*completed);
+		compLock->clear(std::memory_order_release);
+		if (comp == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
-			compLock->clear(std::memory_order_release);
 			master_cv->notify_one();
-		} else compLock->clear(std::memory_order_release);
+		}
 		
 		
 		
