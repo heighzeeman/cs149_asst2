@@ -197,7 +197,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
 		
-		if (++(*completed) == *maxTaskId) {
+		if (completed->fetch_add(1, std::memory_order_relaxed) == *maxTaskId - 1) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
 		}
