@@ -254,7 +254,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		std::cout << "Scheduler woken" << std::endl;
 	}
 	
-	_runnable = nullptr;
+	//_runnable = nullptr;
 	_completed = _nextTaskId = _maxTaskId = 0;
 	_mtx.unlock();
 	std::cout << "Run returning" << std::endl;
