@@ -37,7 +37,7 @@ class TaskSystemParallelSpawn: public ITaskSystem {
         void sync();
 	private:
 		int _num_threads;
-		std::thread *_workers;
+		//std::thread *_workers;
 };
 
 /*

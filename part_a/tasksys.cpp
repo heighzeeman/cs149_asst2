@@ -72,12 +72,12 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
     // method in Part A.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
-	std::thread workers[_num_threads];
+	std::thread workers[_num_threads - 1];
 	for (int i = 1; i < _num_threads; ++i)
-		_workers[i-1] = std::thread(IRunnable_run, runnable, i, _num_threads, num_total_tasks);
+		workers[i-1] = std::thread(IRunnable_run, runnable, i, _num_threads, num_total_tasks);
 	IRunnable_run(runnable, 0, _num_threads, num_total_tasks);
 	for (int i = 1; i < _num_threads; ++i)
-		_workers[i-1].join();
+		workers[i-1].join();
 }
 
 TaskID TaskSystemParallelSpawn::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
