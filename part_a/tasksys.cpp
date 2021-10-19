@@ -187,8 +187,9 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		}
 		IRunnable *runnable = *run_ptr;
 		int taskId = (*nextTaskId)++;
-		qLock->unlock();
 		std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
+		qLock->unlock();
+		
 		runnable->runTask(taskId, *maxTaskId);
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
