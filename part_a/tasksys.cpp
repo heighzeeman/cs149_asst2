@@ -109,7 +109,7 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
 			readyQ->pop();
 			*idle = false;
-			std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << "w/ id= " << toRun.taskId << std::endl;
+			std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << " w/ id= " << toRun.taskId << std::endl;
 			qLock->unlock();
 			
 			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
@@ -181,8 +181,10 @@ void TaskSystemParallelThreadPoolSpinning::sync() {
 				}
 			}
 		} else synced = false;
-		_mtx.unlock();
-		if (synced) break;
+		if (synced) {
+			_mtx.unlock();
+			return;
+		}
 	}
 }
 
