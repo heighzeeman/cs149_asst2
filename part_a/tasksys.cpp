@@ -196,10 +196,11 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
 		qLock->lock();
-		if (++(*completed) == *maxTaskId) {
+		++(*completed);
+		//if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
-		}
+		//}
 		qLock->unlock();
 		
 		
