@@ -100,11 +100,12 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 		int _nextTaskId;
 		int _maxTaskId;
 		int _completed;
+		
+		std::condition_variable_any *_worker_cv;
+		std::condition_variable_any *_master_cv;
+		std::mutex *_mtx;
+		bool *_quit;
 		std::thread *_workers;
-		std::condition_variable_any _worker_cv;
-		std::condition_variable_any _master_cv;
-		std::mutex _mtx;
-		bool _quit;
 };
 
 #endif
