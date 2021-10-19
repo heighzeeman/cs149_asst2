@@ -98,7 +98,7 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 	private:
 		int _num_threads;
 		IRunnable *_runnable;
-		int _nextTaskId;
+		std::atomic<int> _nextTaskId;
 		int _maxTaskId;
 		std::atomic<int> _completed;
 		
