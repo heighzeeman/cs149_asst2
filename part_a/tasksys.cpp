@@ -134,7 +134,7 @@ TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int n
 }
 
 TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
-	_quit = true;
+	//_quit = true;
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
 	_mtx.lock();
