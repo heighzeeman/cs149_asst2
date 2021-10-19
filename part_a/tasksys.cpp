@@ -180,19 +180,17 @@ static void IRunnable_sleep(IRunnable** const run_ptr, std::atomic<int> * const 
 							  bool * const signalQuit, std::condition_variable_any *worker_cv,
 							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
 	while (true) {
-		
+		qLock->lock();
 		while (*nextTaskId >= *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
-			qLock->lock();
 			worker_cv->wait(*qLock);
-			qLock->unlock();
 			if (*signalQuit) {
-				//qLock->unlock();
+				qLock->unlock();
 				return;
 			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
-		
+		qLock->unlock();
 		//int taskId = (*nextTaskId)++;
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		
@@ -269,8 +267,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		_master_cv.wait(*_mtx);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
-	_maxTaskId = 0;
-	_nextTaskId = 0;
+	_nextTaskId = _maxTaskId = 0;
 	_mtx->unlock();
 	
 	//std::cout << "Run returning" << std::endl;
