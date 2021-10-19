@@ -255,8 +255,9 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	}
 	
 	_runnable = nullptr;
-	_mtx.unlock();
 	_completed = _nextTaskId = _maxTaskId = 0;
+	_worker_cv.notify_all();
+	_mtx.unlock();
 	//std::cout << "Run returning" << std::endl;
 }
 
