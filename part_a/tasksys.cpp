@@ -188,6 +188,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		IRunnable *runnable = *run_ptr;
 		int taskId = (*nextTaskId)++;
 		qLock->unlock();
+		std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		runnable->runTask(taskId, *maxTaskId);
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
@@ -243,7 +244,6 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
-	_worker_cv.notify_all();
 	
 	while (_completed != _maxTaskId) {
 		std::cout << "Scheduler waking on worker_cv" << std::endl;
