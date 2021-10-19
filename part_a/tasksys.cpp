@@ -231,7 +231,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
-	_quit = true;
+	*_quit = true;
 	_worker_cv->notify_all();
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
@@ -262,7 +262,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		//std::cout << "Scheduler sleeping" << std::endl;
 		_worker_cv->notify_all();
-		_master_cv->wait(_mtx);
+		_master_cv->wait(*_mtx);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
 	
