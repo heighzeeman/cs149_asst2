@@ -210,11 +210,11 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
 	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), //_compLock(ATOMIC_FLAG_INIT),
-	_worker_cv(new std::condition_variable_any), _master_cv(new std::condition_variable_any), _mtx(new std::mutex), _quit(new bool(false)),
+	_worker_cv(new std::condition_variable_any), _master_cv(), _mtx(new std::mutex), _quit(new bool(false)),
 	_workers(new std::thread[num_threads]) {
 	_mtx->lock();
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, _master_cv, _mtx, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, _mtx, i);
 	}
 	_mtx->unlock();
     //
@@ -239,7 +239,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
 	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 	delete _worker_cv;
-	delete _master_cv;
+	//delete _master_cv;
 	delete _mtx;
 	delete _quit;
 }
@@ -264,7 +264,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		//std::cout << "Scheduler sleeping" << std::endl;
 		
-		_master_cv->wait(*_mtx);
+		_master_cv.wait(*_mtx);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
 	_nextTaskId = _maxTaskId = 0;
