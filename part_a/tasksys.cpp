@@ -239,8 +239,10 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	_maxTaskId = num_total_tasks;
 	_worker_cv.notify_all();
 	
-	while (_completed != _maxTaskId)
+	while (_completed != _maxTaskId) {
+		_worker_cv.notify_all();
 		_master_cv.wait(_mtx);
+	}
 	
 	_runnable = nullptr;
 	_mtx.unlock();
