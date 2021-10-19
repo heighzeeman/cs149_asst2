@@ -133,7 +133,7 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 	_quit = true;
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
-	//std::cout << "Deallocating in destructor\n" << std::endl;
+	std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 }
 
@@ -182,20 +182,20 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 	while (true) {
 		qLock->lock();
 		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
-			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
+			std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
 			if (*signalQuit) {
 				qLock->unlock();
 				return;
 			}
-			//std::cout << "Thread #" << threadId << " woken" << std::endl;
+			std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
 		qLock->unlock();
 		
 		while (compLock->test_and_set(std::memory_order_acquire));
 		int taskId = (*nextTaskId)++;
 		compLock->clear(std::memory_order_release);
-		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
+		std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
@@ -203,7 +203,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		int comp = ++(*completed);
 		compLock->clear(std::memory_order_release);
 		if (comp == *maxTaskId) {
-			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
+			std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
 		}
 		
@@ -241,7 +241,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
 	_worker_cv->notify_all();
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
-	//std::cout << "Deallocating in destructor\n" << std::endl;
+	std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 	delete _worker_cv;
 	delete _master_cv;
@@ -259,24 +259,24 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     //
 
 	_mtx->lock();
-	//std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
+	std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
 	
 	while (_completed != _maxTaskId) {
-		//std::cout << "Scheduler waking on worker_cv" << std::endl;
-		//std::cout << "Scheduler sleeping" << std::endl;
+		std::cout << "Scheduler waking on worker_cv" << std::endl;
+		std::cout << "Scheduler sleeping" << std::endl;
 		_worker_cv->notify_all();
 		_master_cv->wait(*_mtx);
-		//std::cout << "Scheduler woken" << std::endl;
+		std::cout << "Scheduler woken" << std::endl;
 	}
 	
 	_runnable = nullptr;
 	_mtx->unlock();
 	_completed = _nextTaskId = _maxTaskId = 0;
 	
-	//std::cout << "Run returning" << std::endl;
+	std::cout << "Run returning" << std::endl;
 	return;
 }
 
