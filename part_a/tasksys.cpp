@@ -175,7 +175,7 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
     return "Parallel + Thread Pool + Sleep";
 }
 
-static void IRunnable_sleep(IRunnable** const run_ptr, std::atomic<int> * const nextTaskId, std::atomic<int> * const maxTaskId,
+static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
 							  std::atomic<int> * const completed, //std::atomic_flag * const compLock,
 							  bool * const signalQuit, std::condition_variable_any *worker_cv,
 							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
@@ -190,12 +190,12 @@ static void IRunnable_sleep(IRunnable** const run_ptr, std::atomic<int> * const 
 			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
-		qLock->unlock();
-		//int taskId = (*nextTaskId)++;
+		
+		int taskId = (*nextTaskId)++;
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
+		qLock->unlock();
 		
-		
-		(*run_ptr)->runTask(nextTaskId->fetch_add(1, std::memory_order_relaxed), *maxTaskId);
+		(*run_ptr)->runTask(taskId, *maxTaskId);
 		
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
