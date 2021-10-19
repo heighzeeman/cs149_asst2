@@ -242,6 +242,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     //
 
 	_mtx.lock();
+	std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
