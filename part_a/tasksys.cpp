@@ -1,4 +1,5 @@
 #include <cstring>
+#include <iostream>
 #include "tasksys.h"
 
 IRunnable::~IRunnable() {}
@@ -100,7 +101,7 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
     return "Parallel + Thread Pool + Spin";
 }
 
-static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, std::mutex *qLock, bool *signalQuit) { 
+static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, std::mutex *qLock, bool *signalQuit, int threadId) { 
 	IRunnableContext toRun;
 	while (true) {
 		qLock->lock();
@@ -108,6 +109,7 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
 			readyQ->pop();
 			*idle = false;
+			std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << "w/ id= " << toRun.taskId << std::endl;
 			qLock->unlock();
 			
 			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
@@ -122,11 +124,11 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 }
 
 TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _readyCtxs(), _idle(new bool[_num_threads]), _workers(new std::thread[_num_threads]), _mtx(), _quit(false) {
+	_num_threads(num_threads), _readyCtxs(), _idle(new bool[num_threads]), _workers(new std::thread[num_threads]), _mtx(), _quit(false) {
 	_mtx.lock();
 	for (int i = 0; i < num_threads; ++i) {
 		_idle[i] = true;
-		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_idle[i], &_mtx, &_quit);
+		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_idle[i], &_mtx, &_quit, i);
 	}
 	_mtx.unlock();
 }
@@ -135,8 +137,11 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 	_quit = true;
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
+	_mtx.lock();
+	std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _idle;
 	delete[] _workers;
+	_mtx.unlock();
 }
 
 void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_total_tasks) {
