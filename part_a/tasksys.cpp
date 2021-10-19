@@ -101,20 +101,21 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
     return "Parallel + Thread Pool + Spin";
 }
 
-static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, std::mutex *qLock, bool *signalQuit, int threadId) { 
+static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, std::unordered_set<int> *pending, std::mutex *qLock, bool *signalQuit, int threadId) { 
 	IRunnableContext toRun;
 	while (true) {
 		qLock->lock();
 		if (!readyQ->empty()) {
 			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
 			readyQ->pop();
-			*idle = false;
 			std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << " w/ id= " << toRun.taskId << std::endl;
 			qLock->unlock();
 			
 			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
+			qLock->lock();
+			pending->erase(toRun.taskId);
+			qLock->unlock();
 		} else {
-			*idle = true;
 			qLock->unlock();
 		}
 		if (*signalQuit) break;
@@ -122,11 +123,10 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 }
 
 TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _readyCtxs(), _idle(new bool[num_threads]), _workers(new std::thread[num_threads]), _mtx(), _quit(false) {
+	_num_threads(num_threads), _readyCtxs(), _pendingIds(), _workers(new std::thread[num_threads]), _mtx(), _quit(false) {
 	_mtx.lock();
 	for (int i = 0; i < num_threads; ++i) {
-		_idle[i] = true;
-		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_idle[i], &_mtx, &_quit, i);
+		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_pendingIds, &_mtx, &_quit, i);
 	}
 	_mtx.unlock();
 }
@@ -137,7 +137,6 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 		_workers[i].join();
 	_mtx.lock();
 	std::cout << "Deallocating in destructor\n" << std::endl;
-	delete[] _idle;
 	delete[] _workers;
 	_mtx.unlock();
 }
@@ -152,16 +151,27 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
     //
 	
 	IRunnableContext ctx;
-	_mtx.lock();
+	
+	
     for (int i = 0; i < num_total_tasks; ++i) {
 		ctx.runnable = runnable;
 		ctx.taskId = i;
 		ctx.num_total_tasks = num_total_tasks;
+		_mtx.lock();
         _readyCtxs.push(ctx);
+		_pendingIds.insert(i);
+		_mtx.unlock();
     }
-	_mtx.unlock();
 	
-	sync();
+	
+	while (true) {
+		_mtx.lock();
+		if (!_pendingIds.empty()) _mtx.unlock();
+		else {
+			_mtx.unlock();
+			break;
+		}
+	}
 }
 
 TaskID TaskSystemParallelThreadPoolSpinning::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
@@ -170,7 +180,7 @@ TaskID TaskSystemParallelThreadPoolSpinning::runAsyncWithDeps(IRunnable* runnabl
 }
 
 void TaskSystemParallelThreadPoolSpinning::sync() {
-	bool synced = true;
+	/*bool synced = true;
     while (true) {
 		_mtx.lock();
 		if (_readyCtxs.empty()) {
@@ -187,7 +197,7 @@ void TaskSystemParallelThreadPoolSpinning::sync() {
 			std::cout << "Returning from sync" << std::endl;
 			return;
 		}
-	}
+	}*/
 }
 
 /*

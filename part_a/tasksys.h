@@ -5,7 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
-//#include <unordered_set>
+#include <unordered_set>
 
 /*
  * TaskSystemSerial: This class is the student's implementation of a
@@ -70,7 +70,7 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
 	private:
 		int _num_threads;
 		std::queue<IRunnableContext> _readyCtxs;
-		bool *_idle;
+		std::unordered_set<int> _pendingIds;
 		std::thread *_workers;
 		std::mutex _mtx;
 		bool _quit;
