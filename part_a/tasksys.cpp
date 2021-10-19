@@ -176,8 +176,9 @@ void TaskSystemParallelThreadPoolSpinning::sync() {
 		if (_readyCtxs.empty()) {
 			for (int i = 0; i < _num_threads; ++i) {
 				if (!_idle[i]) {
+					std::cout << "Sync: Thread #" << i << " still not idle" << std::endl;
 					synced = false;
-					break;
+					//break;
 				}
 			}
 		} else synced = false;
