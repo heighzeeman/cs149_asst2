@@ -1,3 +1,4 @@
+#include <cstring>
 #include "tasksys.h"
 
 IRunnable::~IRunnable() {}
@@ -104,7 +105,7 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, bool *idle, 
 	while (true) {
 		qLock->lock();
 		if (!readyQ->empty()) {
-			toRun = readyQ->front();
+			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
 			readyQ->pop();
 			*idle = false;
 			qLock->unlock();
