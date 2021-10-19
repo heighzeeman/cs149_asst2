@@ -247,11 +247,11 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	_maxTaskId = num_total_tasks;
 	
 	while (_completed != _maxTaskId) {
-		std::cout << "Scheduler waking on worker_cv" << std::endl;
+		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		_worker_cv.notify_all();
-		std::cout << "Scheduler sleeping" << std::endl;
+		//std::cout << "Scheduler sleeping" << std::endl;
 		_master_cv.wait(_mtx);
-		std::cout << "Scheduler woken" << std::endl;
+		//std::cout << "Scheduler woken" << std::endl;
 	}
 	
 	_runnable = nullptr;
