@@ -184,15 +184,17 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
+			if (*signalQuit) {
+				qLock->unlock();
+				return;
+			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
 		qLock->unlock();
-		if (*signalQuit) return;
 		
 		while (compLock->test_and_set(std::memory_order_acquire));
 		int taskId = (*nextTaskId)++;
 		compLock->clear(std::memory_order_release);
-		
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		
 		
