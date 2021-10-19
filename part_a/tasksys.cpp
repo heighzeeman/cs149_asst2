@@ -176,30 +176,32 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
 }
 
 static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
-							  int * const completed, bool * const signalQuit, std::condition_variable_any *worker_cv,
+							  int * const completed, std::atomic_flag * const compLock,
+							  bool * const signalQuit, std::condition_variable_any *worker_cv,
 							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
 	while (true) {
 		qLock->lock();
-		while ((*run_ptr == nullptr || *nextTaskId >= *maxTaskId) && !*signalQuit) {
+		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
+			if (*signalQuit) {
+				qLock->unlock();
+				return;
+			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
-		if (*signalQuit) {
-			qLock->unlock();
-			return;
-		}
+		
 		int taskId = (*nextTaskId)++;
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		qLock->unlock();
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
-		qLock->lock();
+		while (compLock->test_and_set(std::memory_order_acquire));
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
 		}
-		qLock->unlock();
+		compLock->clear(std::memory_order_release);
 		
 		
 		if (*signalQuit) return;	// Janky way of forcing all threads to terminate nicely in destructor
@@ -207,12 +209,12 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 }
 
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0),
+	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), _compLock(ATOMIC_FLAG_INIT),
 	_worker_cv(new std::condition_variable_any), _master_cv(new std::condition_variable_any), _mtx(new std::mutex), _quit(new bool(false)),
 	_workers(new std::thread[num_threads]) {
 	_mtx->lock();
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, _master_cv, _mtx, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, &_compLock, _quit, _worker_cv, _master_cv, _mtx, i);
 	}
 	_mtx->unlock();
     //
