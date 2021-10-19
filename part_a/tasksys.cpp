@@ -154,14 +154,14 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
     //
 	
 	IRunnableContext ctx;
+	_mtx.lock();
     for (int i = 0; i < num_total_tasks; ++i) {
 		ctx.runnable = runnable;
 		ctx.taskId = i;
 		ctx.num_total_tasks = num_total_tasks;
-		_mtx.lock();
         _readyCtxs.push(ctx);
-		_mtx.unlock();
     }
+	_mtx.unlock();
 }
 
 TaskID TaskSystemParallelThreadPoolSpinning::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
