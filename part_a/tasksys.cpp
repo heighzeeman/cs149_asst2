@@ -78,15 +78,15 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
 		for (int i = 1; i < _num_threads; ++i)
 			workers[i - 1] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
 		runnable->runTask(offset, num_total_tasks);
-		for (int i = 1; i < _num_threads; ++i)
-			workers[i - 1].join();
+		//for (int i = 1; i < _num_threads; ++i)
+		//	workers[i - 1].join();
     }
 	
 	offset = num_batches * _num_threads;
 	for (int i = 1; i < remainder; ++i)
 		workers[i - 1] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
 	if (offset < num_total_tasks) runnable->runTask(offset, num_total_tasks);
-	for (int i = 1; i < remainder; ++i)
+	for (int i = 1; i < (num_batches > 0 ? : _num_threads : remainder); ++i)
 		workers[i - 1].join();
 }
 
