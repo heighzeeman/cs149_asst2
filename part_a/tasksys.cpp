@@ -112,9 +112,7 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, std::unorder
 			qLock->unlock();
 			
 			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
-			qLock->lock();
 			pending->erase(toRun.taskId);
-			qLock->unlock();
 		} else {
 			qLock->unlock();
 		}
@@ -165,12 +163,7 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
 	
 	
 	while (true) {
-		_mtx.lock();
-		if (!_pendingIds.empty()) _mtx.unlock();
-		else {
-			_mtx.unlock();
-			break;
-		}
+		if (_pendingIds.empty()) break;
 	}
 }
 
