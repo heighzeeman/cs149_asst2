@@ -101,18 +101,18 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
     return "Parallel + Thread Pool + Spin";
 }
 
-static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, std::unordered_set<int> *pending, std::mutex *qLock, bool *signalQuit, int threadId) { 
-	IRunnableContext toRun;
+static void IRunnable_rq_spin(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
+							  int * const completed, bool * const signalQuit, std::mutex *qLock, const int threadId) { 
 	while (true) {
 		qLock->lock();
-		if (!readyQ->empty()) {
-			memcpy(&toRun, &readyQ->front(), sizeof(toRun));
-			readyQ->pop();
-			//std::cout << "Thread #" << threadId <<  " running runnable: " << toRun.runnable << " w/ id= " << toRun.taskId << std::endl;
+		IRunnable *runnable = *run_ptr;
+		if (runnable != nullptr && *nextTaskId < *maxTaskId) {
+			int taskId = (*nextTaskId)++;
 			qLock->unlock();
-			
-			toRun.runnable->runTask(toRun.taskId, toRun.num_total_tasks);
-			pending->erase(toRun.taskId);
+			runnable->runTask(taskId, *maxTaskId);
+			qLock->lock();
+			++(*completed);
+			qLock->unlock();
 		} else {
 			qLock->unlock();
 		}
@@ -121,10 +121,10 @@ static void IRunnable_rq_spin(std::queue<IRunnableContext> *readyQ, std::unorder
 }
 
 TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _readyCtxs(), _pendingIds(), _workers(new std::thread[num_threads]), _mtx(), _quit(false) {
+	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), _workers(new std::thread[num_threads]), _mtx(), _quit(false) {
 	_mtx.lock();
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_rq_spin, &_readyCtxs, &_pendingIds, &_mtx, &_quit, i);
+		_workers[i] = std::thread(IRunnable_rq_spin, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, &_quit, &_mtx, i);
 	}
 	_mtx.unlock();
 }
@@ -148,22 +148,22 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
     // tasks sequentially on the calling thread.
     //
 	
-	IRunnableContext ctx;
-	
-	
-    for (int i = 0; i < num_total_tasks; ++i) {
-		ctx.runnable = runnable;
-		ctx.taskId = i;
-		ctx.num_total_tasks = num_total_tasks;
-		_mtx.lock();
-        _readyCtxs.push(ctx);
-		_pendingIds.insert(i);
-		_mtx.unlock();
-    }
+	_mtx.lock();
+	_runnable = runnable;
+	_completed = _nextTaskId = 0;
+	_maxTaskId = num_total_tasks;
+	_mtx.unlock();
 	
 	
 	while (true) {
-		if (_pendingIds.empty()) break;
+		_mtx.lock();
+		if (_completed == _maxTaskId) {
+			_runnable = nullptr;
+			_completed = _nextTaskId = _maxTaskId = 0;
+			_mtx.unlock();
+			return;
+		}
+		_mtx.unlock();
 	}
 }
 

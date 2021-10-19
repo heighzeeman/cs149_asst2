@@ -69,8 +69,10 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
         void sync();
 	private:
 		int _num_threads;
-		std::queue<IRunnableContext> _readyCtxs;
-		std::unordered_set<int> _pendingIds;
+		IRunnable *_runnable;
+		int _nextTaskId;
+		int _maxTaskId;
+		int _completed;
 		std::thread *_workers;
 		std::mutex _mtx;
 		bool _quit;
