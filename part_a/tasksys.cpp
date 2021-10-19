@@ -63,7 +63,7 @@ static void IRunnable_run(IRunnable* runnable, int task_id, int num_total_tasks)
 
 void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
 
-	std::thread workers[_num_threads - 1];
+	std::thread workers[_num_threads];
     //
     // TODO: CS149 students will modify the implementation of this
     // method in Part A.  The implementation provided below runs all
@@ -75,19 +75,17 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
 	
     for (int j = 0; j < num_batches; ++j) {
 		offset = j * _num_threads;
-		for (int i = 1; i < _num_threads; ++i)
-			workers[i - 1] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
-		runnable->runTask(offset, num_total_tasks);
-		//for (int i = 1; i < _num_threads; ++i)
-		//	workers[i - 1].join();
+		for (int i = 0; i < _num_threads; ++i)
+			workers[i] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
+		for (int i = 0; i < _num_threads; ++i)
+			workers[i].join();
     }
 	
 	offset = num_batches * _num_threads;
-	for (int i = 1; i < remainder; ++i)
-		workers[i - 1] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
-	if (offset < num_total_tasks) runnable->runTask(offset, num_total_tasks);
-	for (int i = 1; i < (num_batches > 0 ? _num_threads : remainder); ++i)
-		workers[i - 1].join();
+	for (int i = 0; i < remainder; ++i)
+		workers[i] = std::thread(IRunnable_run, runnable, offset + i, num_total_tasks);
+	for (int i = 0; i < remainder; ++i)
+		workers[i].join();
 }
 
 TaskID TaskSystemParallelSpawn::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
