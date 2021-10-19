@@ -180,7 +180,7 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
 	while (true) {
 		qLock->lock();
-		while (*nextTaskId >= *maxTaskId) {
+		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
 			if (*signalQuit) {
@@ -252,18 +252,18 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
-	_worker_cv.notify_all();
 	
 	while (_completed != _maxTaskId) {
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		//std::cout << "Scheduler sleeping" << std::endl;
+		_worker_cv.notify_all();
 		_master_cv.wait(_mtx);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
 	
-	//_runnable = nullptr;
-	_completed = _nextTaskId = _maxTaskId = 0;
+	_runnable = nullptr;
 	_mtx.unlock();
+	_completed = _nextTaskId = _maxTaskId = 0;
 	
 	//std::cout << "Run returning" << std::endl;
 	return;
