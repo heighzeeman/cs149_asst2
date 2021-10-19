@@ -181,23 +181,23 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 	while (true) {
 		qLock->lock();
 		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
-			std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
+			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
 			worker_cv->wait(*qLock);
 			if (*signalQuit) {
 				qLock->unlock();
 				return;
 			}
-			std::cout << "Thread #" << threadId << " woken" << std::endl;
+			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
 		IRunnable *runnable = *run_ptr;
 		int taskId = (*nextTaskId)++;
-		std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
+		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		qLock->unlock();
 		
 		runnable->runTask(taskId, *maxTaskId);
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
-			std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
+			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
 		}
 		qLock->unlock();
@@ -247,24 +247,24 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     //
 
 	_mtx.lock();
-	std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
+	//std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
 	
 	while (_completed != _maxTaskId) {
-		std::cout << "Scheduler waking on worker_cv" << std::endl;
+		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		_worker_cv.notify_all();
-		std::cout << "Scheduler sleeping" << std::endl;
+		//std::cout << "Scheduler sleeping" << std::endl;
 		_master_cv.wait(_mtx);
-		std::cout << "Scheduler woken" << std::endl;
+		//std::cout << "Scheduler woken" << std::endl;
 	}
 	
 	_runnable = nullptr;
 	_mtx.unlock();
 	_completed = _nextTaskId = _maxTaskId = 0;
 	
-	std::cout << "Run returning" << std::endl;
+	//std::cout << "Run returning" << std::endl;
 	return;
 }
 
