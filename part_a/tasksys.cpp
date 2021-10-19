@@ -198,9 +198,9 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
-			qLock->unlock();
 			master_cv->notify_one();
-		} else qLock->unlock();
+		}
+		qLock->unlock();
 		
 		
 		if (*signalQuit) return;	// Janky way of forcing all threads to terminate nicely in destructor
