@@ -189,12 +189,12 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
-		IRunnable *runnable = *run_ptr;
+		
 		int taskId = (*nextTaskId)++;
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
 		qLock->unlock();
 		
-		runnable->runTask(taskId, *maxTaskId);
+		(*run_ptr)->runTask(taskId, *maxTaskId);
 		qLock->lock();
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
