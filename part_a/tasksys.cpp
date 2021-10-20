@@ -61,13 +61,17 @@ TaskSystemParallelSpawn::~TaskSystemParallelSpawn() {}
 
 
 // Helper function to allow std::thread execution
-static void IRunnable_mod_run(IRunnable* runnable, int task_id, int num_threads, int num_total_tasks) { 
-	for (int i = task_id; i < num_total_tasks; i += num_threads)
-		runnable->runTask(i, num_total_tasks);
+static void IRunnable_mtx_run(IRunnable* runnable, int task_id, int num_threads, int num_total_tasks, std::atomic<int> * const curr_task_id) {
+	while (true) {
+		if (*curr_task_id >= num_total_tasks) return;
+		runnable->runTask(curr_task_id->fetch_add(1, std::memory_order_relaxed), num_total_tasks);
+	}
 }
 
 void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
-
+	std::mutex mtx;
+	std::atomic<int> curr_task_id(0);
+	
 	//static std::thread workers[_num_threads];
     //
     // TODO: CS149 students will modify the implementation of this
@@ -76,8 +80,8 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
     //
 	std::thread workers[_num_threads - 1];
 	for (int i = 1; i < _num_threads; ++i)
-		workers[i-1] = std::thread(IRunnable_mod_run, runnable, i, _num_threads, num_total_tasks);
-	IRunnable_mod_run(runnable, 0, _num_threads, num_total_tasks);
+		workers[i-1] = std::thread(IRunnable_mtx_run, runnable, i, _num_threads, num_total_tasks, &curr_task_id);
+	IRunnable_mtx_run(runnable, 0, _num_threads, num_total_tasks, &curr_task_id);
 	for (int i = 1; i < _num_threads; ++i)
 		workers[i-1].join();
 }

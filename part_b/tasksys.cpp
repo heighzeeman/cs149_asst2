@@ -162,17 +162,17 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 		qlock.unlock();
 		curr->runnable->runTask(int_taskId, curr->num_total_tasks);
 		
-		qlock.lock();
+		
 		if (++curr->num_completed == curr->num_total_tasks) {
 			printf("Thread #%d finished running all %d internal tasks of task %d\n", threadId, curr->num_completed.load(), taskId);
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
-			
+			qlock.lock();
 			completed->insert(taskId);
 			taskdb->erase(taskId);
 			for (TaskID dependent : (*depchildren)[taskId]) {
 				if (--(*taskdb)[dependent]->num_deps == 0) {
 					printf("Thread #%d push: task %d has no more dependencies, pushing to ready queue\n", threadId, dependent);
-					rdyQ->emplace(dependent);
+					rdyQ->push(dependent);
 				}
 			}
 			depchildren->erase(taskId);
@@ -184,7 +184,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 			}
 			qlock.unlock();
 			delete curr;
-		} else qlock.unlock();
+		}// else qlock.unlock();
 	}
 }
 
