@@ -151,7 +151,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 		int taskId = rdyQ->front();
 		TaskContext *curr = (*taskdb)[taskId];
 		int int_taskId = curr->curr_task_id++;
-		printf("Thread #%d running on task ID = %d, internal task ID = %d of %d, runnable = %d\n", threadId, int_taskId, curr->num_total_tasks, curr->runnable);
+		printf("Thread #%d running on task ID = %d, internal task ID = %d of %d, runnable = %p\n", threadId, int_taskId, curr->num_total_tasks, curr->runnable);
 		if (curr->curr_task_id == curr->num_total_tasks) {
 			rdyQ->pop();
 		}
@@ -166,12 +166,14 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 			completed->insert(taskId);
 			taskdb->erase(taskId);
 			for (TaskID dependent : (*depchildren)[taskId]) {
-				if (--(*taskdb)[dependent]->num_deps == 0)
+				if (--(*taskdb)[dependent]->num_deps == 0) {
+					printf("Thread #%d push: task %d has no more dependencies, pushing to ready queue\n", threadId, dependent);
 					rdyQ->emplace(dependent);
+				}
 			}
 			depchildren->erase(taskId);
 			if (num_runs->load() == completed->size()) {
-				printf("Thread #%d waking master_cv. Finished %d tasks overall\n", threadId, completed->size());
+				printf("Thread #%d waking master_cv. Finished %ld tasks overall\n", threadId, completed->size());
 				master_cv->notify_one();
 			}
 			qlock.unlock();
@@ -241,7 +243,9 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 			_depChildren[id].emplace(_depChildren[id].end(), taskId);
 		}
 	}
+	printf("Finished documenting taskId %d with %d total tasks, runnable = %p, curr_task_id = %d\n", taskId, num_total_tasks, curr->runnable, curr->curr_task_id);
 	if (curr->num_deps == 0) {
+		printf("Async push: task %d has no more dependencies, pushing to ready queue\n", taskId);
 		_readyTasks.push(taskId);
 	}
 	_ulock.unlock();
