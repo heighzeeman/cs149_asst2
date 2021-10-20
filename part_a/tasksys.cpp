@@ -133,7 +133,7 @@ TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
 	_quit = true;
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
-	std::cout << "Deallocating in destructor\n" << std::endl;
+	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 }
 
@@ -178,27 +178,28 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
 static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
 							  std::atomic<int> * const completed, //std::atomic_flag * const compLock,
 							  bool * const signalQuit, std::condition_variable *worker_cv,
-							  std::condition_variable *master_cv, std::unique_lock<std::mutex> *qLock, const int threadId) { 
+							  std::condition_variable *master_cv, std::mutex *mtex, const int threadId) {
+	std::unique_lock<std::mutex> qLock(*mtex, std::defer_lock);
 	while (true) {
-		qLock->lock();
+		qLock.lock();
 		while (*nextTaskId >= *maxTaskId) {
-			std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
-			worker_cv->wait(*qLock);
+			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
+			worker_cv->wait(qLock);
 			if (*signalQuit) {
-				qLock->unlock();
+				qLock.unlock();
 				return;
 			}
-			std::cout << "Thread #" << threadId << " woken" << std::endl;
+			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
 		
 		int taskId = (*nextTaskId)++;
-		std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
-		qLock->unlock();
+		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
+		qLock.unlock();
 		
 		(*run_ptr)->runTask(taskId, *maxTaskId);
 		
 		if (++(*completed) == *maxTaskId) {
-			std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
+			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
 			master_cv->notify_one();
 		}
 		
@@ -211,9 +212,9 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
 	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), //_compLock(ATOMIC_FLAG_INIT),
 	_worker_cv(new std::condition_variable), _mtex(), _ulock(_mtex, std::defer_lock), _master_cv(), _workers(new std::thread[num_threads]),
-	_quit(new bool(false))	{
+	_quit(new bool(false)) {
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, &_ulock, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, &_mtex, i);
 	}
     //
     // TODO: CS149 student implementations may decide to perform setup
@@ -234,7 +235,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
 	_worker_cv->notify_all();
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
-	std::cout << "Deallocating in destructor\n" << std::endl;
+	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
 	delete _worker_cv;
 	//delete _master_cv;
@@ -252,23 +253,23 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     //
 
 	_ulock.lock();
-	std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
+	//std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
 	_worker_cv->notify_all();
 	
 	while (_completed != _maxTaskId) {
-		std::cout << "Scheduler waking on worker_cv" << std::endl;
-		std::cout << "Scheduler sleeping" << std::endl;
+		//std::cout << "Scheduler waking on worker_cv" << std::endl;
+		//std::cout << "Scheduler sleeping" << std::endl;
 		
 		_master_cv.wait(_ulock);
-		std::cout << "Scheduler woken" << std::endl;
+		//std::cout << "Scheduler woken" << std::endl;
 	}
 	_nextTaskId = _maxTaskId = 0;
 	_ulock.unlock();
 	
-	std::cout << "Run returning" << std::endl;
+	//std::cout << "Run returning" << std::endl;
 	return;
 }
 
