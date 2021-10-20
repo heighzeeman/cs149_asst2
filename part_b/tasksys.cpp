@@ -129,7 +129,7 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
 static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<TaskID> * const completed,
                             std::unordered_map<TaskID, TaskContext*> * const taskdb, std::unordered_map<TaskID, std::vector<TaskID>> * const depchildren,
 							bool * const signalQuit, std::condition_variable *worker_cv, std::condition_variable *master_cv, std::mutex *mtex,
-							const int threadId) {
+							std::atomic<unsigned> * const num_runs, const int threadId) {
 	std::unique_lock<std::mutex> qlock(*mtex, std::defer_lock);
 	while (true) {
 		qlock.lock();
@@ -166,6 +166,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 					rdyQ->emplace(dependent);
 			}
 			depchildren->erase(taskId);
+			if (*num_runs == completed->size) _master_cv->notify_one;
 			qlock.unlock();
 			delete curr;
 		}
