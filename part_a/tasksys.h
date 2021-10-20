@@ -103,11 +103,16 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 		std::atomic<int> _completed;
 		
 		//std::atomic_flag _compLock;
-		std::condition_variable_any *_worker_cv;
-		std::condition_variable_any _master_cv;
-		std::mutex *_mtx;
-		bool *_quit;
+		std::condition_variable *_worker_cv;
+		
+		
+		std::mutex _mtex;
+		std::unique_lock<std::mutex> _ulock;
+		
+		std::condition_variable _master_cv;
+		
 		std::thread *_workers;
+		bool *_quit;
 };
 
 #endif

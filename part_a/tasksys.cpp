@@ -177,8 +177,8 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
 
 static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
 							  std::atomic<int> * const completed, //std::atomic_flag * const compLock,
-							  bool * const signalQuit, std::condition_variable_any *worker_cv,
-							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
+							  bool * const signalQuit, std::condition_variable *worker_cv,
+							  std::condition_variable *master_cv, std::unique_lock<std::mutex> *qLock, const int threadId) { 
 	while (true) {
 		qLock->lock();
 		while (*nextTaskId >= *maxTaskId) {
@@ -210,10 +210,10 @@ static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, i
 
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
 	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), //_compLock(ATOMIC_FLAG_INIT),
-	_worker_cv(new std::condition_variable_any), _master_cv(), _mtx(new std::mutex), _quit(new bool(false)),
-	_workers(new std::thread[num_threads]) {
+	_worker_cv(new std::condition_variable), _mtex(), _ulock(_mtex, std::defer_lock), _master_cv(), _workers(new std::thread[num_threads]),
+	_quit(new bool(false))	{
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, _mtx, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, &_ulock, i);
 	}
     //
     // TODO: CS149 student implementations may decide to perform setup
@@ -238,7 +238,7 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
 	delete[] _workers;
 	delete _worker_cv;
 	//delete _master_cv;
-	delete _mtx;
+	//delete _mtex;
 	delete _quit;
 }
 
@@ -251,7 +251,7 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // tasks sequentially on the calling thread.
     //
 
-	_mtx->lock();
+	_ulock.lock();
 	//std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
@@ -262,11 +262,11 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		//std::cout << "Scheduler sleeping" << std::endl;
 		
-		_master_cv.wait(*_mtx);
+		_master_cv.wait(_ulock);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
 	_nextTaskId = _maxTaskId = 0;
-	_mtx->unlock();
+	_ulock.unlock();
 	
 	//std::cout << "Run returning" << std::endl;
 	return;
