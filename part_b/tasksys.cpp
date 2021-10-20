@@ -151,7 +151,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 		int taskId = rdyQ->front();
 		TaskContext *curr = (*taskdb)[taskId];
 		int int_taskId = curr->curr_task_id++;
-		printf("Thread #%d running on task ID = %d, internal task ID = %d of %d, runnable = %p\n", threadId, int_taskId, curr->num_total_tasks, curr->runnable);
+		printf("Thread #%d running on task ID = %d, internal task ID = %d of %d, runnable = %p\n", threadId, taskId, int_taskId, curr->num_total_tasks, curr->runnable);
 		if (curr->curr_task_id == curr->num_total_tasks) {
 			rdyQ->pop();
 		}
