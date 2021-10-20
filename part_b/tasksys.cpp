@@ -166,7 +166,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 					rdyQ->emplace(dependent);
 			}
 			depchildren->erase(taskId);
-			if (*num_runs == completed->size) _master_cv->notify_one;
+			if (num_runs->load() == completed->size()) master_cv->notify_one();
 			qlock.unlock();
 			delete curr;
 		}
@@ -178,7 +178,7 @@ TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int n
 	_master_cv(), _readyTasks(), _taskDB(), _depChildren(), _workers(new std::thread[num_threads]), _completed(),
 	_quit(new bool(false)) {
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_readyTasks, &_completed, &_taskDB, &_depChildren, _quit, _worker_cv, &_master_cv, &_mtex, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_readyTasks, &_completed, &_taskDB, &_depChildren, _quit, _worker_cv, &_master_cv, &_mtex, &_numRuns, i);
 	}
     //
     // TODO: CS149 student implementations may decide to perform setup
@@ -271,7 +271,7 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 void TaskSystemParallelThreadPoolSleeping::sync() {
 	while (true) {
 		_ulock.lock();
-		while (_completed.size() != _numRuns)
+		while (_completed.size() != _numRuns.load())
 			_master_cv.wait(_ulock);
 		_ulock.unlock();
 		return;
