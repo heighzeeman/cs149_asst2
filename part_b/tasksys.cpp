@@ -175,6 +175,8 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 			if (num_runs->load() == completed->size()) {
 				printf("Thread #%d waking master_cv. Finished %ld tasks overall\n", threadId, completed->size());
 				master_cv->notify_one();
+			} else {
+				printf("Thread #%d NOT waking master_cv. Finished %ld tasks overall of %u calls\n", threadId, completed->size(), num_runs->load());
 			}
 			qlock.unlock();
 			delete curr;
