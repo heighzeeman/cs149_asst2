@@ -61,13 +61,17 @@ TaskSystemParallelSpawn::~TaskSystemParallelSpawn() {}
 
 
 // Helper function to allow std::thread execution
-static void IRunnable_mod_run(IRunnable* runnable, int task_id, int num_threads, int num_total_tasks) { 
-	for (int i = task_id; i < num_total_tasks; i += num_threads)
-		runnable->runTask(i, num_total_tasks);
+static void IRunnable_mtx_run(IRunnable* runnable, int task_id, int num_threads, int num_total_tasks, std::atomic<int> * const curr_task_id) {
+	while (true) {
+		if (*curr_task_id >= num_total_tasks) return;
+		runnable->runTask(curr_task_id->fetch_add(1, std::memory_order_relaxed), num_total_tasks);
+	}
 }
 
 void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
-
+	std::mutex mtx;
+	std::atomic<int> curr_task_id(0);
+	
 	//static std::thread workers[_num_threads];
     //
     // TODO: CS149 students will modify the implementation of this
@@ -76,8 +80,8 @@ void TaskSystemParallelSpawn::run(IRunnable* runnable, int num_total_tasks) {
     //
 	std::thread workers[_num_threads - 1];
 	for (int i = 1; i < _num_threads; ++i)
-		workers[i-1] = std::thread(IRunnable_mod_run, runnable, i, _num_threads, num_total_tasks);
-	IRunnable_mod_run(runnable, 0, _num_threads, num_total_tasks);
+		workers[i-1] = std::thread(IRunnable_mtx_run, runnable, i, _num_threads, num_total_tasks, &curr_task_id);
+	IRunnable_mtx_run(runnable, 0, _num_threads, num_total_tasks, &curr_task_id);
 	for (int i = 1; i < _num_threads; ++i)
 		workers[i-1].join();
 }
@@ -102,19 +106,19 @@ const char* TaskSystemParallelThreadPoolSpinning::name() {
 }
 
 static void IRunnable_rq_spin(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
-							  int * const completed, bool * const signalQuit, std::mutex *qLock, const int threadId) { 
+							  int * const completed, bool * const signalQuit, std::mutex *qlock, const int threadId) { 
 	while (true) {
-		qLock->lock();
+		qlock->lock();
 		IRunnable *runnable = *run_ptr;
 		if (runnable != nullptr && *nextTaskId < *maxTaskId) {
 			int taskId = (*nextTaskId)++;
-			qLock->unlock();
+			qlock->unlock();
 			runnable->runTask(taskId, *maxTaskId);
-			qLock->lock();
+			qlock->lock();
 			++(*completed);
-			qLock->unlock();
+			qlock->unlock();
 		} else {
-			qLock->unlock();
+			qlock->unlock();
 		}
 		if (*signalQuit) break;	// Janky way of forcing all threads to terminate nicely in destructor
 	}
@@ -176,45 +180,46 @@ const char* TaskSystemParallelThreadPoolSleeping::name() {
 }
 
 static void IRunnable_sleep(IRunnable** const run_ptr, int * const nextTaskId, int * const maxTaskId,
-							  int * const completed, bool * const signalQuit, std::condition_variable_any *worker_cv,
-							  std::condition_variable_any *master_cv, std::mutex *qLock, const int threadId) { 
+							  std::atomic<int> * const completed, //std::atomic_flag * const compLock,
+							  bool * const signalQuit, std::condition_variable *worker_cv,
+							  std::condition_variable *master_cv, std::mutex *mtex, const int threadId) {
+	std::unique_lock<std::mutex> qlock(*mtex, std::defer_lock);
 	while (true) {
-		qLock->lock();
-		while (*run_ptr == nullptr || *nextTaskId >= *maxTaskId) {
+		qlock.lock();
+		if (*signalQuit) {
+			qlock.unlock();
+			return;	// Janky way of forcing all threads to terminate nicely in destructor
+		}
+		while (*nextTaskId >= *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " sleeping: runnable = " << *run_ptr << " and NTID = " << *nextTaskId << " and MTID = " << *maxTaskId << std::endl;
-			worker_cv->wait(*qLock);
+			worker_cv->wait(qlock);
 			if (*signalQuit) {
-				qLock->unlock();
+				qlock.unlock();
 				return;
 			}
 			//std::cout << "Thread #" << threadId << " woken" << std::endl;
 		}
-		IRunnable *runnable = *run_ptr;
+		
 		int taskId = (*nextTaskId)++;
 		//std::cout << "Thread #" << threadId << " running task = " << taskId << std::endl;
-		qLock->unlock();
+		qlock.unlock();
 		
-		runnable->runTask(taskId, *maxTaskId);
-		qLock->lock();
+		(*run_ptr)->runTask(taskId, *maxTaskId);
+		
 		if (++(*completed) == *maxTaskId) {
 			//std::cout << "Thread #" << threadId << " waking on master_cv" << std::endl;
-			qLock->unlock();
 			master_cv->notify_one();
-		} else qLock->unlock();
-		
-		
-		if (*signalQuit) return;	// Janky way of forcing all threads to terminate nicely in destructor
+		}
 	}
 }
 
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), _workers(new std::thread[num_threads]),
-	_worker_cv(), _master_cv(), _mtx(), _quit(false) {
-	_mtx.lock();
+	_num_threads(num_threads), _runnable(nullptr), _nextTaskId(0), _maxTaskId(0), _completed(0), //_compLock(ATOMIC_FLAG_INIT),
+	_worker_cv(new std::condition_variable), _mtex(), _ulock(_mtex, std::defer_lock), _master_cv(), _workers(new std::thread[num_threads]),
+	_quit(new bool(false)) {
 	for (int i = 0; i < num_threads; ++i) {
-		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, &_quit, &_worker_cv, &_master_cv, &_mtx, i);
+		_workers[i] = std::thread(IRunnable_sleep, &_runnable, &_nextTaskId, &_maxTaskId, &_completed, _quit, _worker_cv, &_master_cv, &_mtex, i);
 	}
-	_mtx.unlock();
     //
     // TODO: CS149 student implementations may decide to perform setup
     // operations (such as thread pool construction) here.
@@ -230,12 +235,18 @@ TaskSystemParallelThreadPoolSleeping::~TaskSystemParallelThreadPoolSleeping() {
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
-	_quit = true;
-	_worker_cv.notify_all();
+	_ulock.lock();
+	*_quit = true;
+	_worker_cv->notify_all();
+	_ulock.unlock();
 	for (int i = 0; i < _num_threads; ++i)
 		_workers[i].join();
 	//std::cout << "Deallocating in destructor\n" << std::endl;
 	delete[] _workers;
+	delete _worker_cv;
+	//delete _master_cv;
+	//delete _mtex;
+	delete _quit;
 }
 
 void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_total_tasks) {
@@ -247,23 +258,22 @@ void TaskSystemParallelThreadPoolSleeping::run(IRunnable* runnable, int num_tota
     // tasks sequentially on the calling thread.
     //
 
-	_mtx.lock();
+	_ulock.lock();
 	//std::cout << "Run called with runnable = " << runnable << " and tasks = " << num_total_tasks << std::endl;
 	_runnable = runnable;
 	_completed = _nextTaskId = 0;
 	_maxTaskId = num_total_tasks;
-	_worker_cv.notify_all();
+	_worker_cv->notify_all();
 	
 	while (_completed != _maxTaskId) {
 		//std::cout << "Scheduler waking on worker_cv" << std::endl;
 		//std::cout << "Scheduler sleeping" << std::endl;
-		_master_cv.wait(_mtx);
+		
+		_master_cv.wait(_ulock);
 		//std::cout << "Scheduler woken" << std::endl;
 	}
-	
-	_runnable = nullptr;
-	_mtx.unlock();
-	_completed = _nextTaskId = _maxTaskId = 0;
+	_nextTaskId = _maxTaskId = 0;
+	_ulock.unlock();
 	
 	//std::cout << "Run returning" << std::endl;
 	return;

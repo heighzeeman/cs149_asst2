@@ -1,8 +1,9 @@
 #ifndef _TASKSYS_H
 #define _TASKSYS_H
 
-#include "itasksys.h"
+#include <atomic>
 #include <condition_variable>
+#include "itasksys.h"
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -99,12 +100,19 @@ class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 		IRunnable *_runnable;
 		int _nextTaskId;
 		int _maxTaskId;
-		int _completed;
+		std::atomic<int> _completed;
+		
+		//std::atomic_flag _compLock;
+		std::condition_variable *_worker_cv;
+		
+		
+		std::mutex _mtex;
+		std::unique_lock<std::mutex> _ulock;
+		
+		std::condition_variable _master_cv;
+		
 		std::thread *_workers;
-		std::condition_variable_any _worker_cv;
-		std::condition_variable_any _master_cv;
-		std::mutex _mtx;
-		bool _quit;
+		bool *_quit;
 };
 
 #endif
