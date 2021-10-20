@@ -247,6 +247,7 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 	if (curr->num_deps == 0) {
 		printf("Async push: task %d has no more dependencies, pushing to ready queue\n", taskId);
 		_readyTasks.push(taskId);
+		_worker_cv->notify_all();
 	}
 	_ulock.unlock();
 	
