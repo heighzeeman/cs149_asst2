@@ -12,6 +12,10 @@ ITaskSystem::~ITaskSystem() {}
  * ================================================================
  */
 
+#ifndef _DEBUGGING		// Ugly hack to void all printf statements
+#define	printf(EXPR, ...);
+#endif
+
 const char* TaskSystemSerial::name() {
     return "Serial";
 }
