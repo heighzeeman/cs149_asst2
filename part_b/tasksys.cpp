@@ -185,7 +185,7 @@ static void IRunnable_sleep(std::queue<TaskID> * const rdyQ, std::unordered_set<
 }
 
 TaskSystemParallelThreadPoolSleeping::TaskSystemParallelThreadPoolSleeping(int num_threads): ITaskSystem(num_threads),
-	_num_threads(num_threads), _nextID(0), _worker_cv(new std::condition_variable), _mtex(), _ulock(_mtex, std::defer_lock),
+	_num_threads(num_threads), _numRuns(0), _nextID(0), _worker_cv(new std::condition_variable), _mtex(), _ulock(_mtex, std::defer_lock),
 	_master_cv(), _readyTasks(), _taskDB(), _depChildren(), _workers(new std::thread[num_threads]), _completed(),
 	_quit(new bool(false)) {
 	for (int i = 0; i < num_threads; ++i) {
